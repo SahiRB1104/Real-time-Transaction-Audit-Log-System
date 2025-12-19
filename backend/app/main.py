@@ -51,7 +51,7 @@ def login(user: schemas.UserLogin, db: Session = Depends(get_db)):
     ).first()
 
     if not db_user or not verify_password(
-        user.password, db_user.hashed_password
+        user.password, str(db_user.hashed_password)
     ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

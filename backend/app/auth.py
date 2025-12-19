@@ -5,27 +5,28 @@ from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
-
 from dotenv import load_dotenv
+
 from .database import get_db
 from .models import User
 
 load_dotenv()
 
-SECRET_KEY = os.getenv("JWT_SECRET_KEY")
-ALGORITHM = os.getenv("JWT_ALGORITHM")
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES"))
+# ✅ SAFE defaults (fix typing + runtime issues)
+SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "changeme")
+ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES: int = int(
+    os.getenv("JWT_EXPIRE_MINUTES", "60")
+)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 
-# Password utils
+# 🔐 Password utils
 def hash_password(password: str) -> str:
-    # bcrypt supports max 72 bytes
     safe_password = password.encode("utf-8")[:72].decode("utf-8", errors="ignore")
     return pwd_context.hash(safe_password)
-
 
 
 def verify_password(plain: str, hashed: str) -> bool:
@@ -33,16 +34,15 @@ def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(safe_password, hashed)
 
 
-
-# JWT utils
-def create_access_token(data: dict):
+# 🔑 JWT utils
+def create_access_token(data: dict) -> str:
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
-# Auth dependency
+# 🔒 Auth dependency
 def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
@@ -54,10 +54,16 @@ def get_current_user(
     )
 
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id: int = payload.get("user_id")
-        if user_id is None:
+        payload = jwt.decode(
+            token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM]
+        )
+
+        user_id = payload.get("user_id")
+        if not isinstance(user_id, int):
             raise credentials_exception
+
     except JWTError:
         raise credentials_exception
 
