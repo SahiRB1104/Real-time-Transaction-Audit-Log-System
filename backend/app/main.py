@@ -77,61 +77,69 @@ def login(user: schemas.UserLogin, db: Session = Depends(get_db)):
 def transfer_funds(
     transfer: schemas.TransferRequest,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(get_current_user)
 ):
     if transfer.amount <= 0:
         raise HTTPException(status_code=400, detail="Invalid amount")
 
     try:
-        sender: models.User = db.execute(
+        sender = db.execute(
             select(models.User)
             .where(models.User.id == current_user.id)
             .with_for_update()
         ).scalar_one()
 
-        receiver: models.User | None = db.execute(
+        receiver = db.execute(
             select(models.User)
             .where(models.User.id == transfer.receiver_id)
             .with_for_update()
         ).scalar_one_or_none()
 
+        # ❌ Receiver not found → FAILED LOG
         if receiver is None:
+            db.add(models.Transaction(
+                sender_id=sender.id,
+                receiver_id=transfer.receiver_id,
+                amount=transfer.amount,
+                status="FAILED"
+            ))
+            db.commit()
             raise HTTPException(status_code=404, detail="Receiver not found")
 
-        sender_balance = Decimal(sender.balance or 0)
-        receiver_balance = Decimal(receiver.balance or 0)
-        transfer_amount = Decimal(transfer.amount)
-
-        if sender_balance < transfer_amount:
+        # ❌ Insufficient balance → FAILED LOG
+        if sender.balance < transfer.amount:
+            db.add(models.Transaction(
+                sender_id=sender.id,
+                receiver_id=receiver.id,
+                amount=transfer.amount,
+                status="FAILED"
+            ))
+            db.commit()
             raise HTTPException(status_code=400, detail="Insufficient balance")
 
-        sender.balance = sender_balance - transfer_amount
-        receiver.balance = receiver_balance + transfer_amount
+        # ✅ SUCCESS
+        sender.balance -= transfer.amount
+        receiver.balance += transfer.amount
 
-        transaction = models.Transaction(
+        db.add(models.Transaction(
             sender_id=sender.id,
             receiver_id=receiver.id,
-            amount=transfer_amount,
-            status="SUCCESS",
-        )
+            amount=transfer.amount,
+            status="SUCCESS"
+        ))
 
-        db.add(transaction)
         db.commit()
-        db.refresh(transaction)
 
         return {
             "message": "Transfer successful",
-            "sender_balance": sender.balance,
+            "sender_balance": sender.balance
         }
 
     except HTTPException:
-        db.rollback()
         raise
-    except Exception as e:
-        print("TRANSFER ERROR:", e)
+    except Exception:
         db.rollback()
         raise HTTPException(status_code=500, detail="Transaction failed")
-
 
 
 
