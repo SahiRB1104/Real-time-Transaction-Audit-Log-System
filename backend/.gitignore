@@ -1,2 +1,5 @@
 venv/
   Lib
+
+
+.env
