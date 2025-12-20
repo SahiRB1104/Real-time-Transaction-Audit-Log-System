@@ -17,6 +17,16 @@ app = FastAPI(title="Real-time Transaction & Audit Log System")
 # Create tables
 models.Base.metadata.create_all(bind=engine)
 
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],   # VERY IMPORTANT
+    allow_headers=["*"],   # VERY IMPORTANT
+)
+
 
 # ================= ROOT =================
 @app.get("/")
@@ -163,3 +173,8 @@ def transaction_history(
     )
 
     return history
+
+
+@app.get("/me", response_model=schemas.UserResponse)
+def get_me(current_user: models.User = Depends(get_current_user)):
+    return current_user
