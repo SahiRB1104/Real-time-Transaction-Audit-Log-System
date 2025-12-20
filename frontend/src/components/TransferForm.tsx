@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useMemo } from 'react';
 import { Send, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { transferFunds } from '../api/transactions.ts';
 import { useAuth } from '../context/AuthContext.tsx';
@@ -9,7 +9,8 @@ interface TransferFormProps {
 }
 
 const TransferForm: React.FC<TransferFormProps> = ({ onSuccess }) => {
-  const { updateBalance } = useAuth();
+  const { user } = useAuth();
+
   const [receiverId, setReceiverId] = useState('');
   const [amount, setAmount] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -17,6 +18,12 @@ const TransferForm: React.FC<TransferFormProps> = ({ onSuccess }) => {
   const [success, setSuccess] = useState<string | null>(null);
 
   const successTimeoutRef = useRef<number | null>(null);
+
+  // ✅ Detect self-transfer (UX guard)
+  const isSelfTransfer = useMemo(() => {
+    if (!receiverId || !user?.id) return false;
+    return Number(receiverId) === user.id;
+  }, [receiverId, user?.id]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -26,6 +33,12 @@ const TransferForm: React.FC<TransferFormProps> = ({ onSuccess }) => {
 
       const parsedReceiverId = Number(receiverId);
       const parsedAmount = Number(amount);
+
+      // ❌ Self-transfer guard (extra safety)
+      if (parsedReceiverId === user?.id) {
+        setError('You cannot transfer money to your own account.');
+        return;
+      }
 
       if (!Number.isInteger(parsedReceiverId) || parsedReceiverId <= 0) {
         setError('Please enter a valid Receiver ID.');
@@ -46,12 +59,10 @@ const TransferForm: React.FC<TransferFormProps> = ({ onSuccess }) => {
         });
 
         setSuccess(response.data.message);
-        updateBalance(response.data.sender_balance);
-        setAmount('');
         setReceiverId('');
+        setAmount('');
         onSuccess();
 
-        // Clear success message after 3 seconds
         successTimeoutRef.current = window.setTimeout(
           () => setSuccess(null),
           3000
@@ -66,7 +77,7 @@ const TransferForm: React.FC<TransferFormProps> = ({ onSuccess }) => {
         setIsLoading(false);
       }
     },
-    [receiverId, amount, onSuccess, updateBalance]
+    [receiverId, amount, user?.id, onSuccess]
   );
 
   return (
@@ -81,6 +92,7 @@ const TransferForm: React.FC<TransferFormProps> = ({ onSuccess }) => {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Receiver ID */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Receiver ID
@@ -96,6 +108,15 @@ const TransferForm: React.FC<TransferFormProps> = ({ onSuccess }) => {
           />
         </div>
 
+        {/* Self-transfer warning */}
+        {isSelfTransfer && (
+          <div className="flex items-start gap-2 p-3 bg-amber-50 text-amber-700 rounded-lg text-sm">
+            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+            <span>You cannot send money to your own account.</span>
+          </div>
+        )}
+
+        {/* Amount */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Amount (Rs.)
@@ -117,6 +138,7 @@ const TransferForm: React.FC<TransferFormProps> = ({ onSuccess }) => {
           </div>
         </div>
 
+        {/* Error */}
         {error && (
           <div className="flex items-start gap-2 p-3 bg-red-50 text-red-700 rounded-lg text-sm">
             <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
@@ -124,6 +146,7 @@ const TransferForm: React.FC<TransferFormProps> = ({ onSuccess }) => {
           </div>
         )}
 
+        {/* Success */}
         {success && (
           <div className="flex items-start gap-2 p-3 bg-emerald-50 text-emerald-700 rounded-lg text-sm">
             <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
@@ -131,10 +154,17 @@ const TransferForm: React.FC<TransferFormProps> = ({ onSuccess }) => {
           </div>
         )}
 
+        {/* Submit */}
         <button
           type="submit"
-          disabled={isLoading}
-          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+          disabled={isLoading || isSelfTransfer}
+          className={`w-full font-semibold py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2
+            ${
+              isSelfTransfer
+                ? 'bg-gray-300 cursor-not-allowed text-gray-600'
+                : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+            }
+          `}
         >
           {isLoading ? (
             <Loader2 className="w-5 h-5 animate-spin" />

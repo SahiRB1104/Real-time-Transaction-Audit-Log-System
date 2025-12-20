@@ -29,6 +29,12 @@ export interface TransferResponse {
   sender_balance: number;
 }
 
+export interface AddBalanceResponse {
+  message: string;
+  new_balance: number;
+}
+
+
 export interface ApiError {
   detail: string;
 }

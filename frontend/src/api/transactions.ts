@@ -1,5 +1,5 @@
 import api from './axios.ts';
-import { Transaction, TransferResponse } from '../types.ts';
+import { Transaction, TransferResponse, AddBalanceResponse} from '../types.ts';
 
 export interface TransferPayload {
   receiver_id: number;
@@ -17,3 +17,7 @@ export const getTransactions = () =>
  */
 export const transferFunds = (data: TransferPayload) =>
   api.post<TransferResponse>('/transfer', data);
+
+
+export const addBalance = (data: { amount: number }) =>
+  api.post<AddBalanceResponse>('/add-balance', data);

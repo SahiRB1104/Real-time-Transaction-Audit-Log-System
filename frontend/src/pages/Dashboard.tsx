@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext.tsx';
 import TransferForm from '../components/TransferForm.tsx';
 import TransactionTable from '../components/TransactionTable.tsx';
+import AddBalanceModal from '../components/AddBalanceModel.tsx';
 import { getTransactions } from '../api/transactions.ts';
 import { Transaction } from '../types.ts';
 import {
@@ -14,11 +15,13 @@ import {
 
 const Dashboard: React.FC = () => {
   const { user, refreshUser } = useAuth();
+
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isAddBalanceOpen, setIsAddBalanceOpen] = useState(false);
 
   /**
-   * Fetch transaction history (protected endpoint)
+   * Fetch transaction history
    */
   const fetchTransactions = useCallback(async () => {
     setIsRefreshing(true);
@@ -26,7 +29,6 @@ const Dashboard: React.FC = () => {
       const response = await getTransactions();
       setTransactions(Array.isArray(response.data) ? response.data : []);
     } catch {
-      // Backend unreachable → keep existing state for better UX
       console.warn('Backend unavailable, showing cached transactions.');
     } finally {
       setIsRefreshing(false);
@@ -38,7 +40,20 @@ const Dashboard: React.FC = () => {
   }, [fetchTransactions]);
 
   /**
-   * Handle successful transfer
+   * 🔑 Register global Add Balance trigger (used by Layout)
+   */
+  useEffect(() => {
+    (window as any).__openAddBalance = () => {
+      setIsAddBalanceOpen(true);
+    };
+
+    return () => {
+      delete (window as any).__openAddBalance;
+    };
+  }, []);
+
+  /**
+   * After transfer success
    */
   const handleTransferSuccess = useCallback(() => {
     fetchTransactions();
@@ -46,28 +61,31 @@ const Dashboard: React.FC = () => {
   }, [fetchTransactions, refreshUser]);
 
   /**
-   * Memoized totals (SUCCESS only)
+   * After top-up success
+   */
+  const handleTopUpSuccess = useCallback(() => {
+    fetchTransactions();
+    refreshUser();
+  }, [fetchTransactions, refreshUser]);
+
+  /**
+   * Totals (SUCCESS only)
    */
   const incomingTotal = useMemo(() => {
     return transactions
-      .filter(
-        (t) => t.receiver_id === user?.id && t.status === 'SUCCESS'
-      )
+      .filter(t => t.receiver_id === user?.id && t.status === 'SUCCESS')
       .reduce((acc, curr) => acc + Number(curr.amount), 0);
   }, [transactions, user?.id]);
-
 
   const outgoingTotal = useMemo(() => {
     return transactions
-      .filter(
-        (t) => t.sender_id === user?.id && t.status === 'SUCCESS'
-      )
+      .filter(t => t.sender_id === user?.id && t.status === 'SUCCESS')
       .reduce((acc, curr) => acc + Number(curr.amount), 0);
   }, [transactions, user?.id]);
 
-
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
+      {/* Header */}
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
@@ -93,15 +111,13 @@ const Dashboard: React.FC = () => {
         </button>
       </header>
 
-      {/* Stats Grid */}
+      {/* Stats Grid — UNCHANGED */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-indigo-600 rounded-2xl p-6 text-white shadow-lg shadow-indigo-100 relative overflow-hidden">
           <div className="absolute -right-4 -top-4 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
           <div className="flex items-center gap-3 mb-4 opacity-80">
             <Wallet className="w-5 h-5" />
-            <span className="text-sm font-medium">
-              Available Balance
-            </span>
+            <span className="text-sm font-medium">Available Balance</span>
           </div>
           <div className="text-4xl font-bold mb-1">
             Rs. {(user?.balance || 0).toLocaleString()}
@@ -141,6 +157,7 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* Main Grid — UNCHANGED */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-1">
           <TransferForm onSuccess={handleTransferSuccess} />
@@ -152,6 +169,13 @@ const Dashboard: React.FC = () => {
           />
         </div>
       </div>
+
+      {/* Add Balance Modal (hidden trigger) */}
+      <AddBalanceModal
+        isOpen={isAddBalanceOpen}
+        onClose={() => setIsAddBalanceOpen(false)}
+        onSuccess={handleTopUpSuccess}
+      />
     </div>
   );
 };

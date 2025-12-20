@@ -116,9 +116,9 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
         </div>
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
         <table className="w-full text-left">
-          <thead className="bg-gray-50 text-gray-600 text-xs font-semibold uppercase tracking-wider">
+          <thead className="bg-gray-50 sticky top-0 z-10">
             <tr>
               <th
                 className="px-6 py-4 cursor-pointer hover:text-indigo-600"
@@ -210,9 +210,15 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
-                      {isIncoming
-                        ? `From ID: ${tx.sender_id}`
-                        : `To ID: ${tx.receiver_id}`}
+                        {isIncoming ? (
+                          tx.sender_id === null ? (
+                            <span className="italic text-gray-500">From: System Payment-Gateway</span>
+                          ) : (
+                            `From ID: ${tx.sender_id}`
+                          )
+                        ) : (
+                          `To ID: ${tx.receiver_id}`
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <span
