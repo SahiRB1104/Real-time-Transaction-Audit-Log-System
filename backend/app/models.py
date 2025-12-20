@@ -45,16 +45,37 @@ class Transaction(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
 
-    sender_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    receiver_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    sender_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id"),
+        nullable=True
+    )
+    receiver_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id"),
+        nullable=False
+    )
 
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     status: Mapped[str] = mapped_column(String, nullable=False)
+
+    type: Mapped[str] = mapped_column(
+        String,
+        nullable=False,
+        default="TRANSFER"
+    )
 
     timestamp: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
     )
 
-    sender = relationship("User", foreign_keys=[sender_id], back_populates="sent_transactions")
-    receiver = relationship("User", foreign_keys=[receiver_id], back_populates="received_transactions")
+    sender = relationship(
+        "User",
+        foreign_keys=[sender_id],
+        back_populates="sent_transactions",
+    )
+    receiver = relationship(
+        "User",
+        foreign_keys=[receiver_id],
+        back_populates="received_transactions",
+    )
+

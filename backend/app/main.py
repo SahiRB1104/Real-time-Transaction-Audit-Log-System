@@ -104,6 +104,21 @@ def transfer_funds(
             .where(models.User.id == transfer.receiver_id)
             .with_for_update()
         ).scalar_one_or_none()
+        
+        # ❌ Prevent self-transfer
+        if transfer.receiver_id == current_user.id:
+            db.add(models.Transaction(
+                sender_id=current_user.id,
+                receiver_id=transfer.receiver_id,
+                amount=transfer.amount,
+                status="FAILED"
+            ))
+            db.commit()
+
+            raise HTTPException(
+                status_code=400,
+                detail="You cannot transfer money to your own account"
+            )
 
         # ❌ Receiver not found → FAILED LOG
         if receiver is None:
@@ -173,6 +188,48 @@ def transaction_history(
     )
 
     return history
+
+@app.post("/add-balance", response_model=schemas.AddBalanceResponse)
+def add_balance(
+    data: schemas.AddBalanceRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    if data.amount <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Amount must be greater than zero"
+        )
+
+    try:
+        # 1️⃣ Update balance
+        current_user.balance += data.amount
+
+        # 2️⃣ Create audit transaction (SYSTEM → USER)
+        transaction = models.Transaction(
+            sender_id=None,              # SYSTEM
+            receiver_id=current_user.id,
+            amount=data.amount,
+            status="SUCCESS",
+            type="TOP_UP"
+        )
+
+        db.add(transaction)
+        db.commit()
+        db.refresh(current_user)
+
+        return {
+            "message": "Balance added successfully",
+            "new_balance": current_user.balance
+        }
+
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to add balance"
+        )
+
 
 
 @app.get("/me", response_model=schemas.UserResponse)

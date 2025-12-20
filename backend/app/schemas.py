@@ -1,5 +1,7 @@
-from pydantic import BaseModel, EmailStr
+from typing import Optional
 from decimal import Decimal
+from datetime import datetime
+from pydantic import BaseModel, EmailStr
 
 
 class UserCreate(BaseModel):
@@ -43,12 +45,19 @@ class TransferResponse(BaseModel):
 
 class TransactionHistoryResponse(BaseModel):
     id: int
-    sender_id: int
+    sender_id: Optional[int] = None   # ✅ FIX
     receiver_id: int
     amount: Decimal
-    timestamp: datetime
     status: str
+    type: str
+    timestamp: datetime
 
     class Config:
         from_attributes = True
 
+class AddBalanceRequest(BaseModel):
+    amount: Decimal
+
+class AddBalanceResponse(BaseModel):
+    message: str
+    new_balance: Decimal
