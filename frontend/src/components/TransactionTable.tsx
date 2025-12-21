@@ -14,12 +14,12 @@ import {
 
 interface TransactionTableProps {
   transactions: Transaction[];
-  currentUserId: number;
+  currentUserPublicId: string;
 }
 
 const TransactionTable: React.FC<TransactionTableProps> = ({
   transactions,
-  currentUserId,
+  currentUserPublicId,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState<keyof Transaction>('timestamp');
@@ -176,7 +176,9 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
               </tr>
             ) : (
               filteredTransactions.map((tx) => {
-                const isIncoming = tx.receiver_id === currentUserId;
+                const isIncoming =
+                          tx.receiver_public_id === currentUserPublicId;
+
                 const isSuccess = tx.status === TransactionStatus.SUCCESS;
 
                 return (
