@@ -21,7 +21,6 @@ const TransferForm: React.FC<TransferFormProps> = ({ onSuccess }) => {
 
   /**
    * ✅ Detect self-transfer using PUBLIC ID
-   * (no numeric conversion anymore)
    */
   const isSelfTransfer = useMemo(() => {
     if (!receiverId || !user?.public_id) return false;
@@ -36,7 +35,7 @@ const TransferForm: React.FC<TransferFormProps> = ({ onSuccess }) => {
 
       const parsedAmount = Number(amount);
 
-      // ❌ Self-transfer guard (final safety)
+      // ❌ Self-transfer guard
       if (receiverId.trim() === user?.public_id) {
         setError('You cannot transfer money to your own account.');
         return;
@@ -65,6 +64,8 @@ const TransferForm: React.FC<TransferFormProps> = ({ onSuccess }) => {
         setSuccess(response.data.message);
         setReceiverId('');
         setAmount('');
+
+        // ✅ SUCCESS → refresh transactions
         onSuccess();
 
         successTimeoutRef.current = window.setTimeout(
@@ -77,6 +78,9 @@ const TransferForm: React.FC<TransferFormProps> = ({ onSuccess }) => {
           apiErr?.detail ||
             'An unexpected error occurred during the transfer.'
         );
+
+        // ✅ FAILURE → refresh transactions (FAILED audit log)
+        onSuccess();
       } finally {
         setIsLoading(false);
       }
