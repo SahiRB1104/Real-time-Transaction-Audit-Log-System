@@ -21,12 +21,16 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://real-time-transaction-audit-log-sys.vercel.app/",
-                   "http://localhost:5173",],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "https://real-time-transaction-audit-log-sys.vercel.app",
+    ],
     allow_credentials=True,
-    allow_methods=["*"],   # VERY IMPORTANT
-    allow_headers=["*"],   # VERY IMPORTANT
+    allow_methods=["*"],   # IMPORTANT: allow OPTIONS
+    allow_headers=["*"],   # IMPORTANT: allow content-type
 )
+
 
 
 # ================= ROOT =================
