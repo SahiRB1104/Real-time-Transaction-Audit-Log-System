@@ -92,79 +92,59 @@ def transfer_funds(
     if transfer.amount <= 0:
         raise HTTPException(status_code=400, detail="Invalid amount")
 
-    try:
-        sender = db.execute(
-            select(models.User)
-            .where(models.User.id == current_user.id)
-            .with_for_update()
-        ).scalar_one()
+    sender = db.execute(
+        select(models.User)
+        .where(models.User.id == current_user.id)
+        .with_for_update()
+    ).scalar_one()
 
-        receiver = db.execute(
-            select(models.User)
-            .where(models.User.id == transfer.receiver_id)
-            .with_for_update()
-        ).scalar_one_or_none()
-        
-        # ❌ Prevent self-transfer
-        if transfer.receiver_id == current_user.id:
-            db.add(models.Transaction(
-                sender_id=current_user.id,
-                receiver_id=transfer.receiver_id,
-                amount=transfer.amount,
-                status="FAILED"
-            ))
-            db.commit()
+    receiver = db.execute(
+        select(models.User)
+        .where(models.User.public_id == transfer.receiver_public_id)
+        .with_for_update()
+    ).scalar_one_or_none()
 
-            raise HTTPException(
-                status_code=400,
-                detail="You cannot transfer money to your own account"
-            )
-
-        # ❌ Receiver not found → FAILED LOG
-        if receiver is None:
-            db.add(models.Transaction(
-                sender_id=sender.id,
-                receiver_id=transfer.receiver_id,
-                amount=transfer.amount,
-                status="FAILED"
-            ))
-            db.commit()
-            raise HTTPException(status_code=404, detail="Receiver not found")
-
-        # ❌ Insufficient balance → FAILED LOG
-        if sender.balance < transfer.amount:
-            db.add(models.Transaction(
-                sender_id=sender.id,
-                receiver_id=receiver.id,
-                amount=transfer.amount,
-                status="FAILED"
-            ))
-            db.commit()
-            raise HTTPException(status_code=400, detail="Insufficient balance")
-
-        # ✅ SUCCESS
-        sender.balance -= transfer.amount
-        receiver.balance += transfer.amount
-
+    if receiver is None:
         db.add(models.Transaction(
             sender_id=sender.id,
-            receiver_id=receiver.id,
+            receiver_id=sender.id,  # dummy for FK
+            sender_public_id=sender.public_id,
+            receiver_public_id=transfer.receiver_public_id,
+            sender_username=sender.name,
+            receiver_username="UNKNOWN",
             amount=transfer.amount,
-            status="SUCCESS"
+            status="FAILED"
         ))
-
         db.commit()
+        raise HTTPException(status_code=404, detail="Receiver not found")
 
-        return {
-            "message": "Transfer successful",
-            "sender_balance": sender.balance
-        }
+    if receiver.id == sender.id:
+        raise HTTPException(status_code=400, detail="Cannot transfer to self")
 
-    except HTTPException:
-        raise
-    except Exception:
-        db.rollback()
-        raise HTTPException(status_code=500, detail="Transaction failed")
+    if sender.balance < transfer.amount:
+        raise HTTPException(status_code=400, detail="Insufficient balance")
+
+    sender.balance -= transfer.amount
+    receiver.balance += transfer.amount
+
+    db.add(models.Transaction(
+        sender_id=sender.id,
+        receiver_id=receiver.id,
+        sender_public_id=sender.public_id,
+        receiver_public_id=receiver.public_id,
+        sender_username=sender.name,
+        receiver_username=receiver.name,
+        amount=transfer.amount,
+        status="SUCCESS"
+    ))
+
+    db.commit()
+
+    return {
+        "message": "Transfer successful",
+        "sender_balance": sender.balance
+    }
+
 
 
 
@@ -207,12 +187,20 @@ def add_balance(
 
         # 2️⃣ Create audit transaction (SYSTEM → USER)
         transaction = models.Transaction(
-            sender_id=None,              # SYSTEM
+            sender_id=None,                     # SYSTEM
             receiver_id=current_user.id,
+
+            sender_public_id=None,
+            receiver_public_id=current_user.public_id,
+
+            sender_username=None,
+            receiver_username=current_user.name,
+
             amount=data.amount,
             status="SUCCESS",
             type="TOP_UP"
         )
+
 
         db.add(transaction)
         db.commit()

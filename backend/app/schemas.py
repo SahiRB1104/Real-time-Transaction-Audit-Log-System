@@ -16,7 +16,8 @@ class UserLogin(BaseModel):
 
 
 class UserResponse(BaseModel):
-    id: int
+    id: int                    # internal (keep)
+    public_id: str             # ✅ NEW
     name: str
     email: EmailStr
     balance: Decimal
@@ -28,13 +29,11 @@ class UserResponse(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
-    
-from datetime import datetime
-from decimal import Decimal
 
 
+# 🔁 TRANSFER NOW USES PUBLIC ID
 class TransferRequest(BaseModel):
-    receiver_id: int
+    receiver_public_id: str
     amount: Decimal
 
 
@@ -45,8 +44,10 @@ class TransferResponse(BaseModel):
 
 class TransactionHistoryResponse(BaseModel):
     id: int
-    sender_id: Optional[int] = None   # ✅ FIX
-    receiver_id: int
+    sender_public_id: Optional[str]
+    receiver_public_id: str
+    sender_username: Optional[str]
+    receiver_username: str
     amount: Decimal
     status: str
     type: str
@@ -55,8 +56,10 @@ class TransactionHistoryResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class AddBalanceRequest(BaseModel):
     amount: Decimal
+
 
 class AddBalanceResponse(BaseModel):
     message: str
