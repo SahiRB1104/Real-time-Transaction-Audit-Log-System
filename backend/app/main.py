@@ -11,6 +11,7 @@ from .auth import (
     create_access_token,
     get_current_user,
 )
+from .models import Transaction 
 
 app = FastAPI(title="Real-time Transaction & Audit Log System")
 
@@ -127,7 +128,25 @@ def transfer_funds(
         raise HTTPException(status_code=400, detail="Cannot transfer to self")
 
     if sender.balance < transfer.amount:
-        raise HTTPException(status_code=400, detail="Insufficient balance")
+        failed_tx = Transaction(
+        sender_id=sender.id,
+        receiver_id=receiver.id,
+
+        sender_public_id=sender.public_id,
+        receiver_public_id=receiver.public_id,
+        sender_username=sender.name,
+        receiver_username=receiver.name,
+
+        amount=transfer.amount,
+        status="FAILED",
+        type="TRANSFER"
+        )
+
+        db.add(failed_tx)
+        db.commit()
+
+
+
 
     sender.balance -= transfer.amount
     receiver.balance += transfer.amount
