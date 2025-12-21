@@ -89,85 +89,105 @@ def login(user: schemas.UserLogin, db: Session = Depends(get_db)):
 
 
 # ================= FUND TRANSFER =================
+# ================= FUND TRANSFER =================
 @app.post("/transfer", response_model=schemas.TransferResponse)
 def transfer_funds(
     transfer: schemas.TransferRequest,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
+    # ❌ Invalid amount
     if transfer.amount <= 0:
         raise HTTPException(status_code=400, detail="Invalid amount")
 
-    sender = db.execute(
-        select(models.User)
-        .where(models.User.id == current_user.id)
-        .with_for_update()
-    ).scalar_one()
+    try:
+        # 🔒 Lock sender row
+        sender = db.execute(
+            select(models.User)
+            .where(models.User.id == current_user.id)
+            .with_for_update()
+        ).scalar_one()
 
-    receiver = db.execute(
-        select(models.User)
-        .where(models.User.public_id == transfer.receiver_public_id)
-        .with_for_update()
-    ).scalar_one_or_none()
+        # 🔒 Lock receiver row
+        receiver = db.execute(
+            select(models.User)
+            .where(models.User.public_id == transfer.receiver_public_id)
+            .with_for_update()
+        ).scalar_one_or_none()
 
-    if receiver is None:
-        db.add(models.Transaction(
+        # ❌ Receiver not found
+        if receiver is None:
+            failed_tx = models.Transaction(
+                sender_id=sender.id,
+                receiver_id=sender.id,  # dummy FK
+                sender_public_id=sender.public_id,
+                receiver_public_id=transfer.receiver_public_id,
+                sender_username=sender.name,
+                receiver_username="UNKNOWN",
+                amount=transfer.amount,
+                status="FAILED",
+                type="TRANSFER"
+            )
+            db.add(failed_tx)
+            db.commit()
+            raise HTTPException(status_code=404, detail="Receiver not found")
+
+        # ❌ Self-transfer
+        if sender.id == receiver.id:
+            raise HTTPException(status_code=400, detail="Cannot transfer to self")
+
+        # ❌ Insufficient balance (CRITICAL FIX)
+        if sender.balance < transfer.amount:
+            failed_tx = models.Transaction(
+                sender_id=sender.id,
+                receiver_id=receiver.id,
+                sender_public_id=sender.public_id,
+                receiver_public_id=receiver.public_id,
+                sender_username=sender.name,
+                receiver_username=receiver.name,
+                amount=transfer.amount,
+                status="FAILED",
+                type="TRANSFER"
+            )
+            db.add(failed_tx)
+            db.commit()
+            raise HTTPException(status_code=400, detail="Insufficient balance")
+
+        # ✅ ATOMIC DEBIT + CREDIT
+        sender.balance -= transfer.amount
+        receiver.balance += transfer.amount
+
+        success_tx = models.Transaction(
             sender_id=sender.id,
-            receiver_id=sender.id,  # dummy for FK
+            receiver_id=receiver.id,
             sender_public_id=sender.public_id,
-            receiver_public_id=transfer.receiver_public_id,
+            receiver_public_id=receiver.public_id,
             sender_username=sender.name,
-            receiver_username="UNKNOWN",
+            receiver_username=receiver.name,
             amount=transfer.amount,
-            status="FAILED"
-        ))
-        db.commit()
-        raise HTTPException(status_code=404, detail="Receiver not found")
-
-    if receiver.id == sender.id:
-        raise HTTPException(status_code=400, detail="Cannot transfer to self")
-
-    if sender.balance < transfer.amount:
-        failed_tx = Transaction(
-        sender_id=sender.id,
-        receiver_id=receiver.id,
-
-        sender_public_id=sender.public_id,
-        receiver_public_id=receiver.public_id,
-        sender_username=sender.name,
-        receiver_username=receiver.name,
-
-        amount=transfer.amount,
-        status="FAILED",
-        type="TRANSFER"
+            status="SUCCESS",
+            type="TRANSFER"
         )
 
-        db.add(failed_tx)
+        db.add(success_tx)
         db.commit()
 
+        return {
+            "message": "Transfer successful",
+            "sender_balance": sender.balance
+        }
 
+    except HTTPException:
+        # ⚠️ Business errors already handled
+        raise
 
-
-    sender.balance -= transfer.amount
-    receiver.balance += transfer.amount
-
-    db.add(models.Transaction(
-        sender_id=sender.id,
-        receiver_id=receiver.id,
-        sender_public_id=sender.public_id,
-        receiver_public_id=receiver.public_id,
-        sender_username=sender.name,
-        receiver_username=receiver.name,
-        amount=transfer.amount,
-        status="SUCCESS"
-    ))
-
-    db.commit()
-
-    return {
-        "message": "Transfer successful",
-        "sender_balance": sender.balance
-    }
+    except Exception:
+        # 🔥 HARD SAFETY NET
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Transaction failed due to server error"
+        )
 
 
 
