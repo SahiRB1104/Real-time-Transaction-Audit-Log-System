@@ -72,16 +72,31 @@ const Dashboard: React.FC = () => {
    * Totals (SUCCESS only)
    */
   const incomingTotal = useMemo(() => {
+    if (!user?.public_id) return 0;
+
     return transactions
-      .filter(t => t.receiver_id === user?.id && t.status === 'SUCCESS')
+      .filter(
+        t =>
+          t.receiver_public_id === user.public_id &&
+          t.status === 'SUCCESS' &&
+          t.type === 'TRANSFER'
+      )
       .reduce((acc, curr) => acc + Number(curr.amount), 0);
-  }, [transactions, user?.id]);
+  }, [transactions, user?.public_id]);
 
   const outgoingTotal = useMemo(() => {
+    if (!user?.public_id) return 0;
+
     return transactions
-      .filter(t => t.sender_id === user?.id && t.status === 'SUCCESS')
+      .filter(
+        t =>
+          t.sender_public_id === user.public_id &&
+          t.status === 'SUCCESS' &&
+          t.type === 'TRANSFER'
+      )
       .reduce((acc, curr) => acc + Number(curr.amount), 0);
-  }, [transactions, user?.id]);
+  }, [transactions, user?.public_id]);
+
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">

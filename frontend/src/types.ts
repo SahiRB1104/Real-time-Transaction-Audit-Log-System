@@ -4,6 +4,8 @@ export interface User {
   name: string;
   email: string;
   balance: number;
+  public_id: string;
+  username: string;
 }
 
 export enum TransactionStatus {
@@ -18,6 +20,13 @@ export interface Transaction {
   amount: number;
   status: TransactionStatus;
   timestamp: string;
+  sender_public_id?: string;
+  receiver_public_id: string;
+  sender_username?: string;
+  receiver_username: string;
+  type: 'TRANSFER' | 'TOP_UP';
+
+
 }
 
 export interface AuthResponse {

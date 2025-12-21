@@ -19,11 +19,14 @@ const TransferForm: React.FC<TransferFormProps> = ({ onSuccess }) => {
 
   const successTimeoutRef = useRef<number | null>(null);
 
-  // ✅ Detect self-transfer (UX guard)
+  /**
+   * ✅ Detect self-transfer using PUBLIC ID
+   * (no numeric conversion anymore)
+   */
   const isSelfTransfer = useMemo(() => {
-    if (!receiverId || !user?.id) return false;
-    return Number(receiverId) === user.id;
-  }, [receiverId, user?.id]);
+    if (!receiverId || !user?.public_id) return false;
+    return receiverId.trim() === user.public_id;
+  }, [receiverId, user?.public_id]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -31,20 +34,21 @@ const TransferForm: React.FC<TransferFormProps> = ({ onSuccess }) => {
       setError(null);
       setSuccess(null);
 
-      const parsedReceiverId = Number(receiverId);
       const parsedAmount = Number(amount);
 
-      // ❌ Self-transfer guard (extra safety)
-      if (parsedReceiverId === user?.id) {
+      // ❌ Self-transfer guard (final safety)
+      if (receiverId.trim() === user?.public_id) {
         setError('You cannot transfer money to your own account.');
         return;
       }
 
-      if (!Number.isInteger(parsedReceiverId) || parsedReceiverId <= 0) {
+      // ❌ Invalid Receiver Public ID
+      if (!receiverId || receiverId.trim().length < 6) {
         setError('Please enter a valid Receiver ID.');
         return;
       }
 
+      // ❌ Invalid amount
       if (isNaN(parsedAmount) || parsedAmount <= 0) {
         setError('Please enter a valid positive amount.');
         return;
@@ -54,7 +58,7 @@ const TransferForm: React.FC<TransferFormProps> = ({ onSuccess }) => {
 
       try {
         const response = await transferFunds({
-          receiver_id: parsedReceiverId,
+          receiver_public_id: receiverId.trim(),
           amount: parsedAmount,
         });
 
@@ -77,7 +81,7 @@ const TransferForm: React.FC<TransferFormProps> = ({ onSuccess }) => {
         setIsLoading(false);
       }
     },
-    [receiverId, amount, user?.id, onSuccess]
+    [receiverId, amount, user?.public_id, onSuccess]
   );
 
   return (
@@ -98,7 +102,7 @@ const TransferForm: React.FC<TransferFormProps> = ({ onSuccess }) => {
             Receiver ID
           </label>
           <input
-            type="number"
+            type="text"
             value={receiverId}
             onChange={(e) => setReceiverId(e.target.value)}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"

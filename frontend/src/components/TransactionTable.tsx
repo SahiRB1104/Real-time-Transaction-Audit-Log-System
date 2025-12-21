@@ -116,8 +116,9 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
         </div>
       </div>
 
-      <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
-        <table className="w-full text-left">
+      <div className="overflow-x-auto overflow-y-auto max-h-[420px]">
+        <table className="min-w-[900px] w-full text-left">
+
           <thead className="bg-gray-50 sticky top-0 z-10">
             <tr>
               <th
@@ -129,6 +130,9 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                 </div>
               </th>
               <th className="px-6 py-4">Type</th>
+              <th className="px-6 py-4">Sender</th>
+              <th className="px-6 py-4">Receiver</th>
+
               <th
                 className="px-6 py-4 cursor-pointer hover:text-indigo-600"
                 onClick={() => handleSort('amount')}
@@ -176,13 +180,13 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                 const isSuccess = tx.status === TransactionStatus.SUCCESS;
 
                 return (
-                  <tr
-                    key={tx.id}
-                    className="hover:bg-gray-50 transition-colors"
-                  >
+                  <tr key={tx.id} className="hover:bg-gray-50 transition-colors">
+                    {/* ID */}
                     <td className="px-6 py-4 text-sm font-medium text-gray-600">
                       #{tx.id}
                     </td>
+
+                    {/* Type */}
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         {isIncoming ? (
@@ -195,10 +199,28 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                           </div>
                         )}
                         <span className="text-sm font-medium text-gray-900">
-                          {isIncoming ? 'Received' : 'Sent'}
+                          {tx.type === 'TOP_UP'
+                            ? 'Top Up'
+                            : isIncoming
+                            ? 'Received'
+                            : 'Sent'}
                         </span>
                       </div>
                     </td>
+
+                    {/* Sender */}
+                    <td className="px-6 py-4 text-sm text-gray-700">
+                      {tx.sender_username ?? (
+                        <span className="italic text-gray-400">System</span>
+                      )}
+                    </td>
+
+                    {/* Receiver */}
+                    <td className="px-6 py-4 text-sm text-gray-700">
+                      {tx.receiver_username}
+                    </td>
+
+                    {/* Amount */}
                     <td className="px-6 py-4 text-sm font-bold text-gray-900">
                       <span
                         className={
@@ -209,17 +231,37 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                         {tx.amount.toLocaleString()}
                       </span>
                     </td>
+
+                    {/* Counterparty */}
                     <td className="px-6 py-4 text-sm text-gray-600">
-                        {isIncoming ? (
-                          tx.sender_id === null ? (
-                            <span className="italic text-gray-500">From: System Payment-Gateway</span>
-                          ) : (
-                            `From ID: ${tx.sender_id}`
-                          )
-                        ) : (
-                          `To ID: ${tx.receiver_id}`
+                      {tx.type === 'TOP_UP' ? (
+                        <span className="italic text-gray-500">
+                          From: System Payment Gateway
+                        </span>
+                      ) : isIncoming ? (
+                        <>
+                          From{' '}
+                          <span className="font-medium">
+                            {tx.sender_username}
+                          </span>{' '}
+                          <span className="text-gray-500">
+                            ({tx.sender_public_id})
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          To{' '}
+                          <span className="font-medium">
+                            {tx.receiver_username}
+                          </span>{' '}
+                          <span className="text-gray-500">
+                            ({tx.receiver_public_id})
+                          </span>
+                        </>
                       )}
                     </td>
+
+                    {/* Status */}
                     <td className="px-6 py-4">
                       <span
                         className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border shadow-sm ${
@@ -236,10 +278,13 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                         {tx.status}
                       </span>
                     </td>
+
+                    {/* Date */}
                     <td className="px-6 py-4 text-sm text-gray-500">
                       {formatDate(tx.timestamp)}
                     </td>
                   </tr>
+
                 );
               })
             )}

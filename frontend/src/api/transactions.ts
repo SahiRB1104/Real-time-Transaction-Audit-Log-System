@@ -2,7 +2,7 @@ import api from './axios.ts';
 import { Transaction, TransferResponse, AddBalanceResponse} from '../types.ts';
 
 export interface TransferPayload {
-  receiver_id: number;
+  receiver_public_id: string;
   amount: number;
 }
 

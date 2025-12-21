@@ -17,13 +17,12 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [showProfile, setShowProfile] = useState(false);
 
   const copyToClipboard = useCallback(() => {
-    if (!user?.id) return;
-    navigator.clipboard.writeText(user.id.toString()).then(() => {
+    if (!user?.public_id) return;
+    navigator.clipboard.writeText(user.public_id).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
-  }, [user?.id]);
-
+  }, [user?.public_id]);
   const toggleProfile = useCallback(() => {
     setShowProfile(prev => !prev);
   }, []);
@@ -102,7 +101,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                           </p>
                           <div className="flex items-center justify-between bg-gray-50 p-2 rounded-lg border border-gray-200">
                             <code className="text-indigo-600 font-mono font-bold">
-                              {user?.id}
+                              {user?.public_id}
                             </code>
                             <button onClick={copyToClipboard}>
                               {copied ? <Check /> : <Copy />}
