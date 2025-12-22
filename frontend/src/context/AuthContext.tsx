@@ -30,35 +30,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
    * Validates JWT by calling a protected backend endpoint.
    * Backend-compatible approach (since /me does not exist).
    */
-  const validateSession = useCallback(async () => {
-    const token = localStorage.getItem('access_token');
+const validateSession = useCallback(async () => {
+  const token = localStorage.getItem('access_token');
 
-    if (!token) {
-      setUser(null);
-      setIsLoading(false);
-      return;
-    }
-    
-    setAuthToken(token);
-    try {
-      // If token is invalid, backend will return 401/403
-      const response = await api.get('/me');
-      setUser(response.data);
-      localStorage.setItem('user_data', JSON.stringify(response.data));
-     
-    } catch (error: any) {
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        // Token expired or invalid
-        logout();
-      } else {
-        // Network issue → fallback to cached user for UX
-        const storedUser = localStorage.getItem('user_data');
-        setUser(storedUser ? JSON.parse(storedUser) : null);
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  if (!token) {
+    setUser(null);
+    setIsLoading(false);
+    return;
+  }
+
+  // Attach token before validation
+  setAuthToken(token);
+
+  try {
+    const response = await api.get('/me');
+    setUser(response.data);
+    localStorage.setItem('user_data', JSON.stringify(response.data));
+  } catch {
+    // Token invalid or expired → clear auth state safely
+    setAuthToken(null);
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('user_data');
+    setUser(null);
+  } finally {
+    setIsLoading(false);
+  }
+}, []);
+
 
   useEffect(() => {
     validateSession();
