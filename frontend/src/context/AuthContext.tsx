@@ -38,7 +38,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setIsLoading(false);
       return;
     }
-
+    
+    setAuthToken(token);
     try {
       // If token is invalid, backend will return 401/403
       const response = await api.get('/me');
@@ -67,6 +68,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
    * Login handler
    */
   const login = async (token: string) => {
+    localStorage.setItem('access_token', token);
     setAuthToken(token);
     await validateSession();
   };
@@ -79,6 +81,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     localStorage.removeItem('user_data');
     localStorage.removeItem('access_token');
     setUser(null);
+    setIsLoading(false); 
   };
 
   /**

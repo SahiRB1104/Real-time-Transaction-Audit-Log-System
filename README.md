@@ -189,6 +189,11 @@ AI assistance was used productively during development for the following tasks:
 * Structuring frontend documentation
 
 ---
+**Testing & Debugging Support**
+
+* Assisted in identifying edge cases for concurrent transactions
+* Helped reason about rollback behavior during failed transfers
+* Reviewed error-handling paths to ensure FAILED transactions are logged correctly
 
 ### 📊 Effectiveness Score
 
