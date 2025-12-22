@@ -20,7 +20,7 @@ The overall design closely reflects how **financial transaction systems** are im
 
 📌 **Video Link:**
 
-> *(Add your screen recording link here before final submission)*
+> *https://drive.google.com/file/d/1Rw4-qsEISpOX7kZKuviBcI1-Kz67t3DD/view?usp=sharing*
 
 The demo showcases:
 
