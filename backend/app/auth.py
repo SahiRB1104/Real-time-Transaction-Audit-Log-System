@@ -20,7 +20,13 @@ ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("JWT_EXPIRE_MINUTES", "60"))
 
 
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Use faster bcrypt rounds for development/free tier (default is 12)
+# For production with better hardware, increase to 12-14
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto",
+    bcrypt__rounds=10  # Slightly faster, still secure
+)
 security = HTTPBearer()
 
 
