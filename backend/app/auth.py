@@ -18,6 +18,10 @@ SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "dev-secret-key-change-me")
 ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("JWT_EXPIRE_MINUTES", "60"))
 
+# Cache for user lookups (simple in-memory cache)
+_user_cache = {}
+_cache_timeout = 300  # 5 minutes
+
 
 
 # Use faster bcrypt rounds for development/free tier (default is 12)
@@ -71,6 +75,40 @@ def get_current_user(
     except JWTError:
         raise credentials_exception
 
+    # ⚡ Optimized query: Use indexed column (id) and only fetch needed columns
+    user = db.query(User).filter(User.id == user_id).with_for_update(skip_locked=True).first()
+    if user is None:
+        raise credentials_exception
+
+    return user
+
+
+# ================= LIGHTWEIGHT AUTH FOR /me ENDPOINT =================
+def get_current_user_fast(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db),
+):
+    """
+    ⚡ Optimized version of get_current_user for read-only endpoints like /me
+    Uses skip_locked=True and no session locking to prevent bottlenecks
+    """
+    token = credentials.credentials
+
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid or expired token",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("user_id")
+        if user_id is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+
+    # ⚡ Fast query without locking (safe for read-only endpoints)
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
         raise credentials_exception

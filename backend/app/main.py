@@ -10,6 +10,7 @@ from .auth import (
     verify_password,
     create_access_token,
     get_current_user,
+    get_current_user_fast,
 )
 from .models import Transaction 
 
@@ -265,5 +266,6 @@ def add_balance(
 
 
 @app.get("/me", response_model=schemas.UserResponse)
-def get_me(current_user: models.User = Depends(get_current_user)):
+def get_me(current_user: models.User = Depends(get_current_user_fast)):
+    """Get current user info - uses optimized fast auth without locking"""
     return current_user
