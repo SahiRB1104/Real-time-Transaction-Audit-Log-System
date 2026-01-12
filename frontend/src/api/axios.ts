@@ -3,9 +3,11 @@ import axios from 'axios';
 
 const api = axios.create({
   baseURL: "https://auditpay-backend.onrender.com",
+  timeout: 60000, // 60 seconds timeout (for Render cold starts)
   headers: {
     "Content-Type": "application/json",
-  }
+  },
+  withCredentials: true,
 });
 
 /**
@@ -27,6 +29,7 @@ api.interceptors.request.use(
 /**
  * Response Interceptor (Improvement)
  * Auto logout on token expiry / unauthorized access
+ * Handle network errors better
  */
 api.interceptors.response.use(
   (response) => response,
@@ -38,6 +41,12 @@ api.interceptors.response.use(
 
       // HashRouter safe redirect
       window.location.href = '/#/login';
+    } else if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+      console.error('Request timeout - backend might be waking up (Render cold start)');
+      error.userMessage = 'Server is starting up (this may take 30-60 seconds on first request). Please try again.';
+    } else if (!error.response) {
+      console.error('Network error:', error);
+      error.userMessage = 'Unable to connect to server. Please check your internet connection.';
     }
     return Promise.reject(error);
   }
