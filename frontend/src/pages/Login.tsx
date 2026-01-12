@@ -26,21 +26,35 @@ const Login: React.FC = () => {
     type: 'auth' | 'network' | 'server' | null;
   } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showColdStartWarning, setShowColdStartWarning] = useState(false);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
       setError(null);
       setIsLoading(true);
+      setShowColdStartWarning(false);
+
+      // Show cold start warning after 5 seconds
+      const coldStartTimer = setTimeout(() => {
+        setShowColdStartWarning(true);
+      }, 5000);
 
       try {
         const response = await loginUser({ email, password });
 
         // Only handle token here
         await login(response.data.access_token);
+        clearTimeout(coldStartTimer);
         navigate('/');
       } catch (err: any) {
-        if (err.response) {
+        // Check for custom user message from axios interceptor
+        if (err.userMessage) {
+          setError({
+            message: err.userMessage,
+            type: 'network',
+          });
+        } else if (err.response) {
           const status = err.response.status;
           const detail = err.response.data?.detail;
 
@@ -72,7 +86,7 @@ const Login: React.FC = () => {
         } else if (err.request) {
           setError({
             message:
-              'Network error. Could not reach the server. Is your backend running?',
+              'Server is not responding. If this is your first request, the server may be starting up (Render free tier takes 30-60 seconds). Please wait and try again.',
             type: 'network',
           });
         } else {
@@ -82,7 +96,9 @@ const Login: React.FC = () => {
           });
         }
       } finally {
+        clearTimeout(coldStartTimer);
         setIsLoading(false);
+        setShowColdStartWarning(false);
       }
     },
     [email, password, login, navigate]
@@ -181,6 +197,18 @@ const Login: React.FC = () => {
                   : 'System Error'}
               </p>
               <p className="opacity-90">{error.message}</p>
+            </div>
+          </div>
+        )}
+
+        {isLoading && showColdStartWarning && (
+          <div className="flex items-start gap-3 p-4 rounded-xl text-sm bg-yellow-50 text-yellow-800 border border-yellow-200 animate-in fade-in slide-in-from-top-2 duration-200">
+            <Loader2 className="w-5 h-5 mt-0.5 flex-shrink-0 animate-spin" />
+            <div>
+              <p className="font-bold">Server is waking up...</p>
+              <p className="opacity-90">
+                The free server takes 30-60 seconds to start after inactivity. Please wait, this is normal for the first request.
+              </p>
             </div>
           </div>
         )}
