@@ -1,9 +1,10 @@
 /// <reference types="vite/client" />
 import axios from 'axios';
+import { BASE_API_URL, API_CONFIG } from '../config';
 
 const api = axios.create({
-  baseURL: "https://auditpay-backend.onrender.com",
-  timeout: 60000, // 60 seconds timeout (for Render cold starts)
+  baseURL: BASE_API_URL,
+  timeout: API_CONFIG.TIMEOUT,
   headers: {
     "Content-Type": "application/json",
   },
