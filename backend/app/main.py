@@ -2,6 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from decimal import Decimal
+import os
 
 from .database import engine, get_db
 from . import models, schemas
@@ -12,28 +13,40 @@ from .auth import (
     get_current_user,
     get_current_user_fast,
 )
-from .models import Transaction 
-
-app = FastAPI(title="Real-time Transaction & Audit Log System")
-
-# Create tables
-models.Base.metadata.create_all(bind=engine)
+from .models import Transaction
 
 from fastapi.middleware.cors import CORSMiddleware
 
+app = FastAPI(title="Real-time Transaction & Audit Log System")
+
+# ✅ CORS - Environment-based configuration
+# Allow localhost for development AND deployed frontend for production
+ALLOWED_ORIGINS = [
+    "http://localhost:5173",  # Local Vite dev server
+    "http://localhost:3000",  # Alternative dev port
+    "https://real-time-transaction-audit-log-sys.vercel.app",  # Deployed frontend
+]
+
+# Add RENDER_EXTERNAL_URL if running on Render (for self-requests during deployment)
+if os.getenv("RENDER_EXTERNAL_URL"):
+    ALLOWED_ORIGINS.append(os.getenv("RENDER_EXTERNAL_URL"))
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "https://real-time-transaction-audit-log-sys.vercel.app",
-    ],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],   # IMPORTANT: allow OPTIONS
-    allow_headers=["*"],   # IMPORTANT: allow content-type
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-
+# ✅ SAFE DB INIT (runs AFTER app loads)
+@app.on_event("startup")
+def startup_event():
+    try:
+        models.Base.metadata.create_all(bind=engine)
+        print("✅ Database connected & tables ensured")
+    except Exception as e:
+        print("❌ Database connection failed:", e)
 
 # ================= ROOT =================
 @app.get("/")
